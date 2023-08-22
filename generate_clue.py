@@ -35,7 +35,7 @@ def get_input_feature_train(features, tokenizer, max_gen_length):
 def get_input_feature_test(features, tokenizer, max_gen_length):
     inputs = []
     for sample in features:
-        inputs.append(sample['question'] + ' [gMASK]')
+        inputs.append(sample['scenario'] + " " + sample['question'] + ' [MASK]')
     inputs = tokenizer(inputs, return_tensors="pt", padding=True, add_special_tokens=True)
     # print(inputs)
     inputs = tokenizer.build_inputs_for_generation(inputs, max_gen_length=max_gen_length)
@@ -145,7 +145,7 @@ if __name__ == '__main__':
 
     parameter_name = f'lr_{args.lr}_seed_{args.seed}_bs_{args.train_batch_size}'
     output_model_path = f'./{args.output_dir}/{config_name}/{parameter_name}/'
-    path_save_result = f'./{args.results_save_path}/{config_name}/{parameter_name}/'
+    path_save_result = f'./dataset/{dataset_name}/'
     os.makedirs(path_save_result, exist_ok=True)
     set_seed(args.seed)
     if debug:
@@ -178,10 +178,8 @@ if __name__ == '__main__':
                       'path_save_result': path_save_result,
                       'init_checkpoint': args.init_checkpoint}, indent=2))
     print('# parameters:', sum(param.numel() for param in model.parameters()))
-
     if only_eval:
         args.init = True
-
     if args.init and args.init_checkpoint is None:
         init_checkpoint = f'{output_model_path}/pytorch_model.bin'
         checkpoint = torch.load(init_checkpoint, map_location='cpu')
@@ -196,16 +194,14 @@ if __name__ == '__main__':
         print('init from:', args.init_checkpoint)
 
     if only_eval:
-        scores, results_dev, readable_results_dev = evaluate(model, dev_examples, args.eval_batch_size, tokenizer, args.max_gen_len)
+        scores = evaluate(model, dev_examples, args.eval_batch_size, tokenizer)
         print('dev:', scores)
-        save_dataset(path_save_result, '/dev.json', results_dev)
-        save_dataset(path_save_result, '/readable_dev.json', readable_results_dev)
+        save_dataset(path_save_result, '/dev.json', dev_examples)
         
         
-        scores, results_test, readable_results_test = evaluate(model, test_examples, args.eval_batch_size, tokenizer, args.max_gen_len)
+        scores = evaluate(model, test_examples, args.eval_batch_size, tokenizer)
         print('test:', scores)
-        save_dataset(path_save_result, '/test.json', results_test)
-        save_dataset(path_save_result, '/readable_test.json', readable_results_test)
+        save_dataset(path_save_result, '/test.json', test_examples)
         exit(0)
 
     warm_up_ratio = 0.1
@@ -239,8 +235,6 @@ if __name__ == '__main__':
             end_index = min((step + 1) * train_batch_size, len(train_examples))
             order_index = order[beg_index:end_index]
             batch_example = [train_examples[index] for index in order_index]
-
-
             inputs = get_input_feature_train(batch_example, tokenizer, args.max_gen_len)
             outputs = model(**inputs)
             loss = outputs.loss
@@ -260,13 +254,17 @@ if __name__ == '__main__':
             best_dev_acc = scores
             print('save new best')
             save_model(output_model_path, model, optimizer)
-            save_dataset(path_save_result, '/dev_clue.json', dev_examples)
-
+            save_dataset(path_save_result, '/dev.json', dev_examples)
             scores_test = evaluate(model, test_examples, args.eval_batch_size,tokenizer, args.max_gen_len)
             best_test_result = scores_test
             best_dev_result = scores_dev
             print('test:', scores_test)
-            save_dataset(path_save_result, '/test_clue.json', test_examples)
+            save_dataset(path_save_result, '/test.json', test_examples)
+
+            scores_train = evaluate(model, train_examples, args.eval_batch_size, tokenizer, args.max_gen_len)
+            print('train:', scores_train)
+            save_dataset(path_save_result, '/train.json', train_examples)
+
 
     print('best_dev_result:', best_dev_result)
     print('best_test_result:', best_test_result)
