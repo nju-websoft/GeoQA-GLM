@@ -70,7 +70,7 @@ def evaluate(model, test_examples, eval_batch_size, tokenizer, max_gen_len):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("--model_name",
-                        default='/home/zxhuang/python_workstation/GeoQA-GLM/THUDM-t/glm-large-chinese/',
+                        default='THUDM/glm-large-chinese/',
                         type=str)
     parser.add_argument("--debug",
                         default=False,
